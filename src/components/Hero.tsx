@@ -1,29 +1,10 @@
 import ScrollingText from './ScrollingText';
 import { motion } from 'framer-motion';
-import { useState, useRef, useEffect } from 'react';
 
 export default function Hero() {
-  const [isVideoPopupOpen, setIsVideoPopupOpen] = useState(true); // State for video popup, set to true for every page load
-  const videoPopupRef = useRef<HTMLDivElement>(null); // Ref for video popup
-
   const scrollToDetect = () => {
     document.getElementById('detect')?.scrollIntoView({ behavior: 'smooth' });
   };
-
-  // Handle clicks outside the video popup to close it
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (videoPopupRef.current && !videoPopupRef.current.contains(event.target as Node)) {
-        setIsVideoPopupOpen(false);
-      }
-    };
-    if (isVideoPopupOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
-    }
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [isVideoPopupOpen]);
 
   return (
     <section
@@ -41,7 +22,7 @@ export default function Hero() {
           Find Your Perfect Color Outfits!
         </motion.h1>
         <motion.p
-          className="text-xl mb-6 text-white font-bold mobile-hidden" // Added unique class 'mobile-hidden'
+          className="text-xl mb-6 text-white font-bold mobile-hidden"
           initial={{ opacity: 0, y: 50 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, ease: 'easeOut', delay: 0.3 }}
@@ -61,75 +42,6 @@ export default function Hero() {
         </motion.button>
       </div>
 
-      {/* Video Popup */}
-      {isVideoPopupOpen && (
-        <motion.div
-          className="fixed inset-0 z-[100] bg-black bg-opacity-60 flex items-center justify-center px-4"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.3 }}
-          onClick={(e) => {
-            if (e.target === e.currentTarget) {
-              setIsVideoPopupOpen(false);
-            }
-          }}
-        >
-          <motion.div
-            ref={videoPopupRef}
-            className="w-full max-w-3xl relative"
-            style={{ background: 'transparent' }}
-            initial={{ scale: 0.9, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            exit={{ scale: 0.9, opacity: 0 }}
-            transition={{ duration: 0.3, ease: 'easeOut' }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <button
-              onClick={() => {
-                setIsVideoPopupOpen(false);
-              }}
-              className="absolute top-3 right-12 text-white hover:text-gray-400 transition-colors z-10 p-1 close-button"
-              aria-label="Close"
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="24"
-                height="24"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <line x1="18" y1="6" x2="6" y2="18"></line>
-                <line x1="6" y1="6" x2="18" y2="18"></line>
-              </svg>
-            </button>
-            <video
-              className="w-full h-auto video-popup"
-              style={{ aspectRatio: '9/16', maxWidth: '400px', maxHeight: '700px', border: 'none', transform: 'translateX(256px)', borderRadius: '16px' }}
-              autoPlay
-              loop
-              muted
-              preload="metadata"
-            >
-              <source
-                src="src/components/Clovix4.mp4"
-                type="video/mp4"
-                media="(max-width: 768px)"
-              />
-              <source
-                src="src/components/Clovix4.mp4" /* Replace 'src/components/Clovix.mp4' with your video URL */
-                type="video/mp4"
-              />
-              Your browser does not support the video tag.
-            </video>
-          </motion.div>
-        </motion.div>
-      )}
-
       <style>
         {`
           @media (max-width: 768px) {
@@ -141,15 +53,6 @@ export default function Hero() {
             }
             .text-xl {
               font-size: lg !important; /* Reduces button text size to 1rem (16px) on mobile */
-            }
-            .video-popup {
-              max-width: 250px !important; /* Smaller width for mobile */
-              max-height: 444px !important; /* Smaller height for mobile, maintaining 9:16 aspect ratio */
-              transform: translateX(-10px) !important; /* Slightly more centered on mobile */
-              border-radius: 24px !important; /* More curved edges on mobile */
-            }
-            .close-button {
-              right: 8px !important; /* Closer to video on mobile */
             }
           }
         `}
