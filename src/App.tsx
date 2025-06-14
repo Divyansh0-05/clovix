@@ -7,6 +7,7 @@ import Shop from './components/Shop';
 import About from './components/About';
 import Footer from './components/Footer';
 import { Outfit } from './components/outfit';
+import { SpeedInsights } from '@vercel/speed-insights/react';
 
 function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -90,6 +91,7 @@ function App() {
         wishlist={wishlist}
         toggleWishlist={toggleWishlist}
       />
+      <SpeedInsights />
       <About />
       <Footer />
     </div>

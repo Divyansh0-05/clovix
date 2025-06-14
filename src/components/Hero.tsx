@@ -5,7 +5,7 @@ export default function Hero() {
   const scrollToDetect = () => {
     document.getElementById('detect')?.scrollIntoView({ behavior: 'smooth' });
   };
-
+ 
   return (
     <section
       id="home"
