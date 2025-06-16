@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from 'react';
 import { Camera } from '@mediapipe/camera_utils';
 import { FaceDetection } from '@mediapipe/face_detection';
 import { motion, useScroll, useTransform } from 'framer-motion';
-import HomeImage from './Home.png';
 import CartoonImage from './cartoon.png';
 
 interface SkinToneResult {
@@ -222,13 +221,35 @@ const Detect: React.FC<DetectProps> = ({ isLoggedIn, userId, token, onSkinToneDe
     <section
       id="detect"
       ref={sectionRef}
-      className="min-h-screen py-20 px-4 relative overflow-hidden"
-      style={{ backgroundImage: `url(${HomeImage})`, backgroundSize: 'cover' }}
+      className="min-h-screen py-8 px-4 relative overflow-hidden"
+      style={{
+        backgroundColor: '#FFFFFF',
+      }}
     >
+      <style>
+        {`
+          #detect::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 55%;
+            background: linear-gradient(to bottom, #2b1155, #3c1776);
+            border-bottom-left-radius: 10vw;
+            border-bottom-right-radius: 10vw;
+            z-index: 0;
+          }
+          #detect > * {
+            position: relative;
+            z-index: 1;
+          }
+        `}
+      </style>
       <div className="container mx-auto max-w-6xl">
-        <div className="pt-8">
-          <h2 className="text-3xl font-bold text-center mb-6 text-black">Detect Your Skin Tone</h2>
-          <p className="text-center text-lg mb-12 text-black">
+        <div className="pt-2">
+          <h2 className="text-3xl font-bold text-center mb-4 text-white">Detect Your Skin Tone</h2>
+          <p className="text-center text-lg mb-12 text-white">
             "Style is a way to say who you are without having to speak"<br />
             — Let's find your perfect color palette
           </p>
