@@ -2073,7 +2073,7 @@ export default function Shop({ isLoggedIn, userId, token, detectedSkinTone, wish
 
         setOutfits(sortedOutfits);
         setFilteredOutfits(sortedOutfits);
-
+ 
         const allAmazonOutfits = sortedOutfits.filter(outfit => outfit.source === 'amazon');
         const allFlipkartOutfits = sortedOutfits.filter(outfit => outfit.source === 'flipkart');
         const allMyntraOutfits = sortedOutfits.filter(outfit => outfit.source === 'myntra');
@@ -2163,7 +2163,7 @@ export default function Shop({ isLoggedIn, userId, token, detectedSkinTone, wish
       ajioScrollRef.current.style.transform = `translateX(-${ajioOffset * ITEM_WIDTH}px)`;
     }
   }, [amazonOffset, flipkartOffset, myntraOffset, ajioOffset]);
-
+ 
   const handleShowMore = (type: 'all') => {
     if (type === 'all') setAllItemsToShow(prev => prev + 8);
   };

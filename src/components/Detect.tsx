@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Camera } from '@mediapipe/camera_utils';
 import { FaceDetection } from '@mediapipe/face_detection';
 import { motion, useScroll, useTransform } from 'framer-motion';
-import CartoonImage from './cartoon.png';
+import CartoonImage from './cartoon1.webp';
 
 interface SkinToneResult {
   color: string;
@@ -221,7 +221,7 @@ const Detect: React.FC<DetectProps> = ({ isLoggedIn, userId, token, onSkinToneDe
     <section
       id="detect"
       ref={sectionRef}
-      className="min-h-screen py-8 px-4 relative overflow-hidden"
+      className="min-h-screen py-14 px-4 relative overflow-hidden"
       style={{
         backgroundColor: '#FFFFFF',
       }}
@@ -247,11 +247,9 @@ const Detect: React.FC<DetectProps> = ({ isLoggedIn, userId, token, onSkinToneDe
         `}
       </style>
       <div className="container mx-auto max-w-6xl">
-        <div className="pt-2">
-          <h2 className="text-3xl font-bold text-center mb-4 text-white">Detect Your Skin Tone</h2>
+        <div className="pt-6">
           <p className="text-center text-lg mb-12 text-white">
-            "Style is a way to say who you are without having to speak"<br />
-            — Let's find your perfect color palette
+            "Please make sure your in natural light or well lit area."<br />
           </p>
         </div>
 
@@ -270,7 +268,7 @@ const Detect: React.FC<DetectProps> = ({ isLoggedIn, userId, token, onSkinToneDe
               style={{
                 borderRadius: cameraBorderRadius,
               }}
-              transition={{ type: 'spring', stiffness: 150, damping: 20 }}
+              transition={{ duration: 0.3, ease: 'easeInOut' }}
             >
               <div className="w-full h-full">
                 <video
@@ -339,7 +337,7 @@ const Detect: React.FC<DetectProps> = ({ isLoggedIn, userId, token, onSkinToneDe
                 width: 'min(80vw, 500px)',
                 height: 'min(80vw, 500px)',
               }}
-              transition={{ type: 'spring', stiffness: 150, damping: 20 }}
+              transition={{ duration: 0.5, ease: 'easeInOut' }}
             >
               <div className="w-full h-full p-8">
                 <h3 className="text-2xl font-bold mb-2 text-center lg:text-left">Your Skin Tone Analysis</h3>
