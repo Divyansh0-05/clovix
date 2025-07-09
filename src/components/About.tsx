@@ -174,30 +174,7 @@ export default function About() {
             </div>
           </motion.div>
         </div>
-        {/* Future Plan Section */}
-        <motion.div
-          className="mt-8 bg-gray-900 bg-opacity-80 rounded-lg p-6 max-w-4xl mx-auto"
-          variants={cardVariants}
-          initial="hidden"
-          animate="visible"
-        >
-          <motion.div
-            className="relative bg-gray-900 rounded-lg p-4 hover:bg-gray-800 transition-all duration-300"
-            custom={5}
-            variants={featureVariants}
-            initial="hidden"
-            animate="visible"
-            whileHover="hover"
-          >
-            <h3 className="text-3xl font-bold text-purple-100 mb-4">Our Future Vision</h3>
-            <p className="text-purple-100 text-lg leading-relaxed">
-              We're excited to announce that Clovix is working on a revolutionary <span className="font-semibold">Virtual Try-On</span> feature! 
-              Soon, you'll be able to try on clothes virtually, seeing how outfits look on you in real-time, 
-              making your shopping experience even more seamless and fun.
-            </p>
-            <div className="absolute -top-2 -left-2 w-4 h-4 bg-purple-400 rounded-full animate-pulse" />
-          </motion.div>
-        </motion.div>
+        
       </div>
     </section>
   );
