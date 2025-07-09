@@ -165,7 +165,7 @@ export default function About() {
                 <h3 className="text-3xl lg:text-4xl font-semibold text-purple-100 mb-2">Connect with Us 📩</h3>
                 <p className="text-purple-200 text-lg lg:text-xl">
                   📷 Instagram: <a href="https://instagram.com/clovix.in" target="_blank" rel="noopener noreferrer" className="underline hover:text-purple-100">@clovix.in</a><br />
-                  📧 Email: <a href="mailto:support@clovix.com" className="underline hover:text-purple-100">support@clovix.vercel.app</a><br />
+                  📧 Email: <a href="mailto:support@clovix.com" className="underline hover:text-purple-100">clovix.in@gmail.com</a><br />
                   🌍 Website: <a href="https://clovix.vercel.app" target="_blank" rel="noopener noreferrer" className="underline hover:text-purple-100">clovix.in</a><br />
                   Reach out for style tips and support! 💬
                 </p>
