@@ -1,0 +1,13 @@
+# Environment variables — NEVER push these
+.env
+.env.local
+
+# Dependencies
+node_modules/
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store

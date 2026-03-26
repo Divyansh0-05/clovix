@@ -11,6 +11,18 @@ node_modules/
 dist/
 .env
 .vercel
+
+# Environment variables
+.env.local
+.env.development
+.env.production
+
+# Debug files
+lint_res.json
+read_lint.cjs
+test_build.js
+test_vite.cjs
+vite-error.txt
 *.log
 
 # Editor directories and files

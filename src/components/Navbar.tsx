@@ -1,25 +1,34 @@
 import { useState, useRef, useEffect } from 'react';
 import { Heart, User, Home, Camera, ShoppingBag, Trash2 } from 'lucide-react';
 import { motion } from 'framer-motion';
-import Cookies from 'js-cookie';
 import { Outfit } from './outfit';
 
 interface NavbarProps {
   isLoggedIn: boolean;
   onLogout: () => void;
+  onLogin: (email: string, password: string) => Promise<{ success: boolean; message: string }>;
+  onRegister: (fullName: string, email: string, password: string) => Promise<{ success: boolean; message: string }>;
+  username: string;
+  userEmail: string;
+  selectedGender: string | null;
+  onGenderChange: (gender: string) => void;
   wishlistCount: number;
   wishlist: Outfit[];
   toggleWishlist: (outfit: Outfit) => void;
-  setIsLoggedIn: (value: boolean) => void;
 }
 
 export default function Navbar({
   isLoggedIn,
   onLogout,
+  onLogin,
+  onRegister,
+  username,
+  userEmail,
+  selectedGender,
+  onGenderChange,
   wishlistCount,
   wishlist,
   toggleWishlist,
-  setIsLoggedIn,
 }: NavbarProps) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isAuthPopupOpen, setIsAuthPopupOpen] = useState(false);
@@ -29,23 +38,12 @@ export default function Navbar({
   const [passwordInput, setPasswordInput] = useState('');
   const [nameInput, setNameInput] = useState('');
   const [hoveredIcon, setHoveredIcon] = useState<string | null>(null);
-  const [username, setUsername] = useState<string>(''); // Added state for username
-  const [isWelcomePopupOpen, setIsWelcomePopupOpen] = useState(false); // Added state for welcome popup
+  const [isWelcomePopupOpen, setIsWelcomePopupOpen] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const popupRef = useRef<HTMLDivElement>(null);
   const wishlistRef = useRef<HTMLDivElement>(null);
-  const welcomePopupRef = useRef<HTMLDivElement>(null); // Added ref for welcome popup
-
-  useEffect(() => {
-    const savedAuth = Cookies.get('authData');
-    if (savedAuth) {
-      const authData = JSON.parse(savedAuth);
-      if (authData.email) {
-        setIsLoggedIn(true); // Restore login state
-        setUsername(authData.name || ''); // Set username from cookies
-      }
-    }
-    // Wishlist restoration handled in App.tsx, no need for cookie update here
-  }, [setIsLoggedIn]);
+  const welcomePopupRef = useRef<HTMLDivElement>(null);
 
   const toggleMobileMenu = () => {
     setIsMobileMenuOpen(prev => {
@@ -69,6 +67,7 @@ export default function Navbar({
 
   const toggleAuthPopup = () => {
     closeMobileMenu();
+    setAuthError(null);
     setIsAuthPopupOpen(!isAuthPopupOpen);
   };
 
@@ -77,28 +76,36 @@ export default function Navbar({
     setIsWishlistOpen(prev => !prev);
   };
 
-  const handleAuthSubmit = (e: React.FormEvent) => {
+  const handleAuthSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const authData = {
-      email: emailInput,
-      password: passwordInput,
-      ...(isSignupMode && { name: nameInput }),
-    };
-    console.log('Auth data submitted:', authData);
-    Cookies.set('authData', JSON.stringify(authData), { expires: 7 });
-    setIsLoggedIn(true);
-    setUsername(isSignupMode ? nameInput : ''); // Update username on signup
-    setIsAuthPopupOpen(false);
-    setIsWelcomePopupOpen(true); // Show welcome popup after login
-    setEmailInput('');
-    setPasswordInput('');
-    setNameInput('');
+    setAuthError(null);
+    setIsSubmitting(true);
+
+    try {
+      let result;
+      if (isSignupMode) {
+        result = await onRegister(nameInput, emailInput, passwordInput);
+      } else {
+        result = await onLogin(emailInput, passwordInput);
+      }
+
+      if (result.success) {
+        setIsAuthPopupOpen(false);
+        setIsWelcomePopupOpen(true);
+        setEmailInput('');
+        setPasswordInput('');
+        setNameInput('');
+      } else {
+        setAuthError(result.message);
+      }
+    } catch {
+      setAuthError('Something went wrong. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleLogout = () => {
-    Cookies.remove('authData');
-    setIsLoggedIn(false);
-    setUsername(''); // Clear username on logout
     onLogout();
     setIsAuthPopupOpen(false);
   };
@@ -183,17 +190,6 @@ export default function Navbar({
                 </span>
               )}
             </button>
-            {hoveredIcon === 'wishlist' && (
-              <motion.span
-                className="absolute top-full mt-2 bg-[#5B21B6] text-white px-3 py-1 rounded-full text-xs font-medium shadow-lg whitespace-nowrap hidden md:block"
-                initial={{ opacity: 0, y: -5 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -5 }}
-                transition={{ duration: 0.2 }}
-              >
-                {iconNames.wishlist}
-              </motion.span>
-            )}
           </motion.div>
           <div
             className={`hamburger md:hidden cursor-pointer z-[51] ${isMobileMenuOpen ? 'active' : ''}`}
@@ -208,20 +204,15 @@ export default function Navbar({
         <div
           className={`
             nav-links fixed md:static top-20 left-0 transform md:transform-none
-            w-full md:w-auto
-            h-auto md:h-auto
-            min-w-0 md:min-w-0 max-w-none md:max-w-none
+            w-full md:w-auto h-auto md:h-auto
             bg-[rgba(240,232,232,0.98)] md:bg-transparent
             flex flex-row md:flex-row items-center justify-center md:justify-center
             gap-8 md:gap-10 py-4 md:py-0
             transition-all duration-300 ease-in-out
-            rounded-b-lg md:rounded-none
-            shadow-lg md:shadow-none
-            z-40 md:z-auto
-            ${
-              isMobileMenuOpen
-                ? 'translate-y-0 opacity-100'
-                : '-translate-y-full opacity-0 pointer-events-none md:pointer-events-auto md:translate-y-0 md:opacity-100'
+            rounded-b-lg md:rounded-none shadow-lg md:shadow-none z-40 md:z-auto
+            ${isMobileMenuOpen
+              ? 'translate-y-0 opacity-100'
+              : '-translate-y-full opacity-0 pointer-events-none md:pointer-events-auto md:translate-y-0 md:opacity-100'
             }
           `}
         >
@@ -241,11 +232,8 @@ export default function Navbar({
             >
               <button
                 onClick={() => {
-                  if (section) {
-                    handleNavClick(section);
-                  } else if (action) {
-                    action();
-                  }
+                  if (section) handleNavClick(section);
+                  else if (action) action();
                 }}
                 className="text-[#5B21B6] hover:text-[#6d28d9] transition-colors duration-300 relative p-2"
               >
@@ -272,7 +260,7 @@ export default function Navbar({
         </div>
       </nav>
 
-      {/* Auth Popup */}
+      {/* Auth / Profile Popup */}
       {isAuthPopupOpen && (
         <motion.div
           className="fixed inset-0 z-[100] bg-black bg-opacity-60 flex items-center justify-center px-4"
@@ -280,13 +268,11 @@ export default function Navbar({
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.3 }}
-          onClick={(e) => {
-            if (e.target === e.currentTarget) setIsAuthPopupOpen(false);
-          }}
+          onClick={(e) => { if (e.target === e.currentTarget) setIsAuthPopupOpen(false); }}
         >
           <motion.div
             ref={popupRef}
-            className="bg-white w-full max-w-md rounded-2xl p-6 shadow-2xl relative"
+            className="bg-white w-full max-w-md rounded-2xl p-6 shadow-2xl relative max-h-[85vh] overflow-y-auto"
             initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.9, opacity: 0 }}
@@ -298,100 +284,111 @@ export default function Navbar({
               className="absolute top-3 right-3 text-gray-500 hover:text-gray-800 transition-colors z-10 p-1"
               aria-label="Close"
             >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="24"
-                height="24"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <line x1="18" y1="6" x2="6" y2="18"></line>
                 <line x1="6" y1="6" x2="18" y2="18"></line>
               </svg>
             </button>
 
-            <h2 className="text-2xl font-semibold mb-5 text-center text-[#5B21B6]">
-              {isLoggedIn ? 'Account' : isSignupMode ? 'Sign Up' : 'Login'}
-            </h2>
-
             {isLoggedIn ? (
-              <div className="text-center">
-                <p className="mb-4 text-gray-700">
-                  Hello {username ? username : ''}, <br /> You are logged in.
-                </p>
+              /* ===== PROFILE VIEW ===== */
+              <div>
+                <h2 className="text-2xl font-semibold mb-6 text-center text-[#5B21B6]">My Profile</h2>
+
+                {/* User Info */}
+                <div className="bg-purple-50 rounded-xl p-4 mb-5">
+                  <div className="flex items-center gap-4">
+                    <div className="w-14 h-14 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center text-white text-xl font-bold shadow-md">
+                      {username ? username.charAt(0).toUpperCase() : 'U'}
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-gray-800 text-lg">{username || 'User'}</h3>
+                      <p className="text-gray-500 text-sm">{userEmail}</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Gender Preference */}
+                <div className="mb-5">
+                  <h4 className="text-sm font-semibold text-gray-700 mb-3 uppercase tracking-wide">
+                    Gender Preference
+                  </h4>
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => onGenderChange('male')}
+                      className={`flex-1 py-3 px-4 rounded-xl font-medium transition-all duration-300 border-2 ${
+                        selectedGender === 'male'
+                          ? 'bg-blue-50 border-blue-400 text-blue-700 shadow-sm'
+                          : 'bg-gray-50 border-gray-200 text-gray-500 hover:border-blue-200 hover:bg-blue-50/50'
+                      }`}
+                    >
+                      <span className="text-lg">👔</span> Men
+                      {selectedGender === 'male' && <span className="ml-2 text-blue-500">✓</span>}
+                    </button>
+                    <button
+                      onClick={() => onGenderChange('female')}
+                      className={`flex-1 py-3 px-4 rounded-xl font-medium transition-all duration-300 border-2 ${
+                        selectedGender === 'female'
+                          ? 'bg-pink-50 border-pink-400 text-pink-700 shadow-sm'
+                          : 'bg-gray-50 border-gray-200 text-gray-500 hover:border-pink-200 hover:bg-pink-50/50'
+                      }`}
+                    >
+                      <span className="text-lg">👗</span> Women
+                      {selectedGender === 'female' && <span className="ml-2 text-pink-500">✓</span>}
+                    </button>
+                  </div>
+                  <p className="text-xs text-gray-400 mt-2 text-center">
+                    Change anytime to see different recommendations
+                  </p>
+                </div>
+
+                {/* Logout */}
                 <button
                   onClick={handleLogout}
-                  className="w-full bg-[#ff6f61] text-white py-2 px-4 rounded-lg hover:bg-[#e65a50] transition-colors"
+                  className="w-full bg-red-50 text-red-600 py-2.5 px-4 rounded-xl hover:bg-red-100 transition-colors font-medium border border-red-200"
                 >
                   Logout
                 </button>
               </div>
             ) : (
-              <form onSubmit={handleAuthSubmit}>
-                {isSignupMode && (
-                  <div className="mb-4">
-                    <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="name">
-                      Name
-                    </label>
-                    <input
-                      id="name"
-                      type="text"
-                      value={nameInput}
-                      onChange={(e) => setNameInput(e.target.value)}
-                      required={isSignupMode}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#5B21B6] focus:border-transparent"
-                    />
+              /* ===== LOGIN / SIGNUP FORM ===== */
+              <div>
+                <h2 className="text-2xl font-semibold mb-5 text-center text-[#5B21B6]">
+                  {isSignupMode ? 'Sign Up' : 'Login'}
+                </h2>
+
+                {authError && (
+                  <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-600 text-sm">
+                    {authError}
                   </div>
                 )}
-                <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="email">
-                    Email
-                  </label>
-                  <input
-                    id="email"
-                    type="email"
-                    value={emailInput}
-                    onChange={(e) => setEmailInput(e.target.value)}
-                    required
-                    autoComplete="email"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#5B21B6] focus:border-transparent"
-                  />
-                </div>
-                <div className="mb-6">
-                  <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="password">
-                    Password
-                  </label>
-                  <input
-                    id="password"
-                    type="password"
-                    value={passwordInput}
-                    onChange={(e) => setPasswordInput(e.target.value)}
-                    required
-                    autoComplete={isSignupMode ? 'new-password' : 'current-password'}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#5B21B6] focus:border-transparent"
-                  />
-                </div>
-                <button
-                  type="submit"
-                  className="w-full bg-[#5B21B6] text-white py-2 px-4 rounded-lg hover:bg-[#6d28d9] transition-colors mb-4"
-                >
-                  {isSignupMode ? 'Sign Up' : 'Login'}
-                </button>
-                <p className="text-center text-sm text-gray-600">
-                  {isSignupMode ? 'Already have an account?' : "Don't have an account?"}{' '}
-                  <button
-                    type="button"
-                    onClick={() => setIsSignupMode(!isSignupMode)}
-                    className="text-[#5B21B6] hover:underline font-medium"
-                  >
-                    {isSignupMode ? 'Login' : 'Sign Up'}
+
+                <form onSubmit={handleAuthSubmit}>
+                  {isSignupMode && (
+                    <div className="mb-4">
+                      <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="name">Name</label>
+                      <input id="name" type="text" value={nameInput} onChange={(e) => setNameInput(e.target.value)} required className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#5B21B6] focus:border-transparent" />
+                    </div>
+                  )}
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="email">Email</label>
+                    <input id="email" type="email" value={emailInput} onChange={(e) => setEmailInput(e.target.value)} required autoComplete="email" className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#5B21B6] focus:border-transparent" />
+                  </div>
+                  <div className="mb-6">
+                    <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="password">Password</label>
+                    <input id="password" type="password" value={passwordInput} onChange={(e) => setPasswordInput(e.target.value)} required minLength={6} autoComplete={isSignupMode ? 'new-password' : 'current-password'} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#5B21B6] focus:border-transparent" />
+                  </div>
+                  <button type="submit" disabled={isSubmitting} className={`w-full py-2 px-4 rounded-lg transition-colors mb-4 text-white ${isSubmitting ? 'bg-gray-400 cursor-not-allowed' : 'bg-[#5B21B6] hover:bg-[#6d28d9]'}`}>
+                    {isSubmitting ? 'Please wait...' : isSignupMode ? 'Sign Up' : 'Login'}
                   </button>
-                </p>
-              </form>
+                  <p className="text-center text-sm text-gray-600">
+                    {isSignupMode ? 'Already have an account?' : "Don't have an account?"}{' '}
+                    <button type="button" onClick={() => { setIsSignupMode(!isSignupMode); setAuthError(null); }} className="text-[#5B21B6] hover:underline font-medium">
+                      {isSignupMode ? 'Login' : 'Sign Up'}
+                    </button>
+                  </p>
+                </form>
+              </div>
             )}
           </motion.div>
         </motion.div>
@@ -404,10 +401,7 @@ export default function Navbar({
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          transition={{ duration: 0.3 }}
-          onClick={(e) => {
-            if (e.target === e.currentTarget) setIsWelcomePopupOpen(false);
-          }}
+          onClick={(e) => { if (e.target === e.currentTarget) setIsWelcomePopupOpen(false); }}
         >
           <motion.div
             ref={welcomePopupRef}
@@ -415,41 +409,17 @@ export default function Navbar({
             initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.9, opacity: 0 }}
-            transition={{ duration: 0.3, ease: 'easeOut' }}
             onClick={(e) => e.stopPropagation()}
           >
-            <button
-              onClick={() => setIsWelcomePopupOpen(false)}
-              className="absolute top-3 right-3 text-gray-500 hover:text-gray-800 transition-colors z-10 p-1"
-              aria-label="Close"
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="24"
-                height="24"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <line x1="18" y1="6" x2="6" y2="18"></line>
-                <line x1="6" y1="6" x2="18" y2="18"></line>
-              </svg>
+            <button onClick={() => setIsWelcomePopupOpen(false)} className="absolute top-3 right-3 text-gray-500 hover:text-gray-800 p-1" aria-label="Close">
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
             </button>
-
             <h2 className="text-2xl font-semibold mb-5 text-center text-[#5B21B6]">
-              Welcome!
+              Welcome{username ? `, ${username}` : ''}! 🎉
             </h2>
-            <p className="text-center text-gray-700 mb-4">
-              Enjoy your best outfit!
-            </p>
-            <button
-              onClick={() => setIsWelcomePopupOpen(false)}
-              className="w-full bg-[#5B21B6] text-white py-2 px-4 rounded-lg hover:bg-[#6d28d9] transition-colors"
-            >
-              Continue
+            <p className="text-center text-gray-700 mb-4">Find your perfect outfit that matches your skin tone!</p>
+            <button onClick={() => setIsWelcomePopupOpen(false)} className="w-full bg-[#5B21B6] text-white py-2 px-4 rounded-lg hover:bg-[#6d28d9] transition-colors">
+              Let's Go
             </button>
           </motion.div>
         </motion.div>
@@ -467,35 +437,22 @@ export default function Navbar({
         >
           <h3 className="text-lg font-bold text-gray-800 mb-4">Your Wishlist</h3>
           {wishlist.length === 0 ? (
-            <p className="text-gray-600 text-center">
-              Please fill your wish! 😊
-            </p>
+            <p className="text-gray-600 text-center">Please fill your wish! 😊</p>
           ) : (
             <div className="space-y-4">
               {wishlist.map(outfit => (
                 <div key={outfit._id} className="flex items-center space-x-4">
-                  <a
-                    href={outfit.affiliateLink}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center space-x-4 flex-1"
-                  >
-                    <img
-                      src={outfit.imageUrl}
-                      alt={outfit.name}
-                      className="w-16 h-16 object-cover rounded-lg"
-                    />
+                  <a href={outfit.affiliateLink} target="_blank" rel="noopener noreferrer" className="flex items-center space-x-4 flex-1">
+                    <img src={outfit.imageUrl} alt={outfit.name} className="w-16 h-16 object-cover rounded-lg" />
                     <div>
-                      <h4 className="text-sm font-semibold text-gray-800 hover:text-[#7c3aed] transition-colors">
-                        {outfit.name}
-                      </h4>
+                      <h4 className="text-sm font-semibold text-gray-800 hover:text-[#7c3aed] transition-colors">{outfit.name}</h4>
                       <p className="text-xs text-gray-600">{outfit.price}</p>
                     </div>
                   </a>
                   <button
                     onClick={() => toggleWishlist(outfit)}
                     className="text-red-500 hover:text-red-600 transition-colors flex-shrink-0 p-1 rounded-full"
-                    onMouseEnter={(e) => (e.currentTarget.style.boxShadow = '0 0 15px 5px rgba(255, 0, 0, 0.3), inset 0 0 10px rgba(255, 0, 0, 0.2)')}
+                    onMouseEnter={(e) => (e.currentTarget.style.boxShadow = '0 0 15px 5px rgba(255, 0, 0, 0.3)')}
                     onMouseLeave={(e) => (e.currentTarget.style.boxShadow = 'none')}
                   >
                     <Trash2 className="w-5 h-5" />
@@ -508,132 +465,28 @@ export default function Navbar({
       )}
 
       <style>{`
-        .handbag-animation {
-          position: relative;
-          height: 60px;
-          display: flex;
-          align-items: center;
-          width: 100%;
-        }
-        .handbag {
-          position: absolute;
-          width: 40px;
-          height: 50px;
-          background: #7c3aed;
-          border-radius: 5px;
-          animation:
-            slide-left 1s cubic-bezier(0.4, 0, 0.2, 1) forwards,
-            bag-float 3s ease-in-out infinite 1s;
-          z-index: 10;
-          box-shadow: 0 5px 15px rgba(124, 58, 237, 0.3);
-          left: 0;
-        }
-        .handbag::before {
-          content: '';
-          position: absolute;
-          width: 30px;
-          height: 18px;
-          background: transparent;
-          border: 2px solid #7c3aed;
-          border-bottom: none;
-          border-radius: 15px 15px 0 0;
-          top: -14px;
-          left: 5px;
-        }
-        .bag-flap {
-          position: absolute;
-          width: 40px;
-          height: 15px;
-          background: #6d28d9;
-          top: 0;
-          left: 0;
-          border-radius: 5px 5px 0 0;
-          z-index: 1;
-        }
-        @keyframes slide-left {
-          0% { transform: translateX(60px); opacity: 1; }
-          100% { transform: translateX(0) rotate(-10deg); opacity: 1; }
-        }
-        @keyframes bag-float {
-          0%, 100% { transform: translateX(0) rotate(-10deg) translateY(0); }
-          50% { transform: translateX(0) rotate(-10deg) translateY(-5px); }
-        }
-        .logo-text {
-          position: relative;
-          font-weight: 700;
-          font-size: 1.5rem;
-          color: #7c3aed;
-          margin-left: 45px;
-          text-shadow: 0 2px 8px rgba(124, 58, 237, 0.2);
-          letter-spacing: 1px;
-          opacity: 0;
-          animation: fade-in 0.5s ease-in forwards 1s;
-          white-space: nowrap;
-        }
+        .handbag-animation { position: relative; height: 60px; display: flex; align-items: center; width: 100%; }
+        .handbag { position: absolute; width: 40px; height: 50px; background: #7c3aed; border-radius: 5px; animation: slide-left 1s cubic-bezier(0.4, 0, 0.2, 1) forwards, bag-float 3s ease-in-out infinite 1s; z-index: 10; box-shadow: 0 5px 15px rgba(124, 58, 237, 0.3); left: 0; }
+        .handbag::before { content: ''; position: absolute; width: 30px; height: 18px; background: transparent; border: 2px solid #7c3aed; border-bottom: none; border-radius: 15px 15px 0 0; top: -14px; left: 5px; }
+        .bag-flap { position: absolute; width: 40px; height: 15px; background: #6d28d9; top: 0; left: 0; border-radius: 5px 5px 0 0; z-index: 1; }
+        @keyframes slide-left { 0% { transform: translateX(60px); opacity: 1; } 100% { transform: translateX(0) rotate(-10deg); opacity: 1; } }
+        @keyframes bag-float { 0%, 100% { transform: translateX(0) rotate(-10deg) translateY(0); } 50% { transform: translateX(0) rotate(-10deg) translateY(-5px); } }
+        .logo-text { position: relative; font-weight: 700; font-size: 1.5rem; color: #7c3aed; margin-left: 45px; text-shadow: 0 2px 8px rgba(124, 58, 237, 0.2); letter-spacing: 1px; opacity: 0; animation: fade-in 0.5s ease-in forwards 1s; white-space: nowrap; }
         @media (max-width: 768px) {
-          .logo-text {
-            font-size: 1.25rem;
-            margin-left: 40px;
-          }
-          .handbag {
-            width: 35px;
-            height: 45px;
-          }
-          .handbag::before {
-            width: 25px;
-            height: 15px;
-            top: -12px;
-            left: 4px;
-          }
-          .bag-flap {
-            width: 35px;
-            height: 12px;
-          }
-          .nav-links .wishlist-icon {
-            display: none;
-          }
+          .logo-text { font-size: 1.25rem; margin-left: 40px; }
+          .handbag { width: 35px; height: 45px; }
+          .handbag::before { width: 25px; height: 15px; top: -12px; left: 4px; }
+          .bag-flap { width: 35px; height: 12px; }
+          .nav-links .wishlist-icon { display: none; }
         }
-        @keyframes fade-in {
-          0% { opacity: 0; transform: translateY(10px); }
-          100% { opacity: 1; transform: translateY(0); }
-        }
-        .bag-hardware {
-          position: absolute;
-          width: 6px;
-          height: 6px;
-          background: #9f67fa;
-          border-radius: 50%;
-          top: 12px;
-          left: 17px;
-          z-index: 2;
-        }
-        .bag-stitching {
-          position: absolute;
-          width: 30px;
-          height: 1px;
-          background: rgba(124, 58, 237, 0.4);
-          left: 5px;
-          top: 20px;
-          border-radius: 1px;
-        }
+        @keyframes fade-in { 0% { opacity: 0; transform: translateY(10px); } 100% { opacity: 1; transform: translateY(0); } }
+        .bag-hardware { position: absolute; width: 6px; height: 6px; background: #9f67fa; border-radius: 50%; top: 12px; left: 17px; z-index: 2; }
+        .bag-stitching { position: absolute; width: 30px; height: 1px; background: rgba(124, 58, 237, 0.4); left: 5px; top: 20px; border-radius: 1px; }
         .bag-stitching:nth-child(3) { top: 30px; }
         .bag-stitching:nth-child(4) { top: 40px; }
-        @media (max-width: 768px) {
-          .bag-stitching {
-            width: 25px;
-          }
-          .bag-hardware {
-            left: 14px;
-          }
-        }
-        .nav-links:not(.opacity-100) {
-          pointer-events: none;
-        }
-        @media (min-width: 768px) {
-          .nav-links {
-            pointer-events: auto !important;
-          }
-        }
+        @media (max-width: 768px) { .bag-stitching { width: 25px; } .bag-hardware { left: 14px; } }
+        .nav-links:not(.opacity-100) { pointer-events: none; }
+        @media (min-width: 768px) { .nav-links { pointer-events: auto !important; } }
       `}</style>
     </>
   );

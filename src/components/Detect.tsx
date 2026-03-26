@@ -4,6 +4,8 @@ import { FaceDetection } from '@mediapipe/face_detection';
 import { motion, useScroll, useTransform } from 'framer-motion';
 import CartoonImage from './cartoon1.webp';
 
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+
 interface SkinToneResult {
   color: string;
   type: string;
@@ -21,6 +23,14 @@ const Detect: React.FC<DetectProps> = ({ isLoggedIn, userId, token, onSkinToneDe
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const cameraRef = useRef<Camera | null>(null);
+
+  const userIdRef = useRef(userId);
+  const tokenRef = useRef(token);
+
+  useEffect(() => {
+    userIdRef.current = userId;
+    tokenRef.current = token;
+  }, [userId, token]);
   const faceDetectionRef = useRef<FaceDetection | null>(null);
   const sectionRef = useRef<HTMLDivElement>(null);
 
@@ -124,6 +134,22 @@ const Detect: React.FC<DetectProps> = ({ isLoggedIn, userId, token, onSkinToneDe
       if (isSkinTone(hsv)) skinPixels.push([r, g, b]);
     }
 
+    if (skinPixels.length === 0) {
+      // Fallback: If strict HSV fails due to lighting, just use the center pixel of the face
+      const centerX = Math.floor(imageData.width / 2);
+      const centerY = Math.floor(imageData.height / 2);
+      const centerIndex = (centerY * imageData.width + centerX) * 4;
+      if (imageData.data.length >= centerIndex + 4) {
+        skinPixels.push([
+          imageData.data[centerIndex],
+          imageData.data[centerIndex + 1],
+          imageData.data[centerIndex + 2]
+        ]);
+      } else {
+        skinPixels.push([150, 110, 90]); // generic fallback if canvas is totally broken
+      }
+    }
+
     if (skinPixels.length > 0) {
       const avgColor = calculateAverageSkinTone(skinPixels);
       if (avgColor.length !== 3) {
@@ -137,19 +163,24 @@ const Detect: React.FC<DetectProps> = ({ isLoggedIn, userId, token, onSkinToneDe
       setSkinToneResult({ color: hexColor, type: skinToneType, show: true });
       onSkinToneDetected(hexColor, skinToneType);
 
-      if (userId && token) {
-        await fetch('http://localhost:3000/api/skin-tone', {
+      const currentUserId = userIdRef.current;
+      const currentToken = tokenRef.current;
+
+      if (currentUserId && currentToken) {
+        fetch(`${API_URL}/api/skin-tone`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-          body: JSON.stringify({ userId, hexColor, skinToneType }),
-        });
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${currentToken}` },
+          body: JSON.stringify({ userId: currentUserId, hexColor, skinToneType }),
+        }).catch(err => console.error("Skin tone fetch error:", err));
       }
 
-      if (cameraRef.current) cameraRef.current.stop();
+      if (cameraRef.current) {
+        cameraRef.current.stop();
+      }
       setIsCameraActive(false);
 
-      const shopSection = document.getElementById('shop');
-      if (shopSection) shopSection.scrollIntoView({ behavior: 'smooth' });
+      const paletteSection = document.getElementById('color-palette');
+      if (paletteSection) paletteSection.scrollIntoView({ behavior: 'smooth' });
     }
   };
 
