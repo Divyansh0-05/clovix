@@ -14,6 +14,34 @@ const wishlistRoutes = require('./routes/wishlist');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+const allowedOrigins = [
+  'http://localhost:3000',
+  'http://localhost:5173',
+  'http://localhost:5174',
+  'https://clovix.in',
+  'https://www.clovix.in',
+  ...(process.env.ALLOWED_ORIGINS || '')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean),
+];
+
+const corsOptions = {
+  origin(origin, callback) {
+    // Allow server-to-server calls and same-origin requests with no Origin header.
+    if (!origin) {
+      return callback(null, true);
+    }
+
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+
+    return callback(new Error(`CORS blocked for origin: ${origin}`));
+  },
+  credentials: true,
+};
+
 // Connect to MongoDB
 connectDB().then(() => {
   // One-time startup sync to fill database
@@ -38,10 +66,8 @@ cron.schedule('0 3 21 * *', () => {
 });
 
 // Middleware
-app.use(cors({
-  origin: ['http://localhost:5173', 'http://localhost:5174', 'http://localhost:3000'],
-  credentials: true,
-}));
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions));
 app.use(express.json());
 
 // Routes
