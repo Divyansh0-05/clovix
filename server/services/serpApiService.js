@@ -1,284 +1,347 @@
 const axios = require('axios');
 const Outfit = require('../models/Outfit');
 
-const skinToneQueries = {
-  warm: [
-    'olive green shirt men', 'mustard tshirt men', 'rust casual shirt men',
-    'terracotta shirt men', 'brown casual shirt men', 'camel polo tshirt men',
-    'golden yellow shirt men', 'burnt orange shirt men', 'tan linen shirt men',
-    'khaki shirt men', 'camel trousers men', 'brown chinos men',
-    'khaki pants men', 'olive green trousers men', 'terracotta kurta men',
-    'mustard kurta men', 'rust nehru jacket men', 'olive green top women',
-    'mustard kurta women', 'rust blouse women', 'terracotta top women',
-    'peach kurti women', 'golden yellow kurta women', 'burnt orange top women',
-    'camel blouse women', 'warm beige top women', 'olive green dress women',
-    'mustard co ord set women', 'rust ethnic wear women', 'terracotta saree women',
-    'peach dress women', 'camel jacket women', 'brown blazer men',
-    'olive green jacket men'
-  ],
-  cool: [
-    'navy blue shirt men', 'royal blue tshirt men', 'grey formal shirt men',
-    'purple casual shirt men', 'black shirt men', 'steel blue shirt men',
-    'cobalt blue shirt men', 'indigo shirt men', 'charcoal tshirt men',
-    'powder blue shirt men', 'grey formal trousers men', 'navy blue trousers men',
-    'black chinos men', 'charcoal trousers men', 'navy blue kurta men',
-    'royal blue sherwani men', 'black bandhgala men', 'navy blue top women',
-    'lavender kurta women', 'pink blouse women', 'grey top women',
-    'ice blue kurti women', 'steel blue top women', 'cobalt blue top women',
-    'lilac top women', 'dusty pink kurti women', 'navy blue dress women',
-    'lavender co ord set women', 'pink co ord set women', 'mint green dress women',
-    'ice blue dress women', 'cobalt blue lehenga women', 'navy blue blazer women',
-    'grey jacket men', 'black jacket men'
-  ],
-  neutral: [
-    'teal shirt men', 'burgundy tshirt men', 'sage green shirt men',
-    'forest green shirt men', 'wine red shirt men', 'dusty blue shirt men',
-    'off white shirt men', 'plum shirt men', 'warm grey shirt men',
-    'burgundy trousers men', 'forest green pants men', 'teal trousers men',
-    'wine red chinos men', 'teal kurta men', 'burgundy pathani men',
-    'forest green sherwani men', 'sage green kurta men', 'teal top women',
-    'burgundy kurti women', 'sage green blouse women', 'mauve top women',
-    'forest green kurti women', 'wine red blouse women', 'off white kurti women',
-    'plum blouse women', 'dusty rose blouse women', 'teal dress women',
-    'burgundy co ord set women', 'sage green dress women', 'forest green lehenga women',
-    'wine red dress women', 'mauve saree women', 'burgundy jacket women',
-    'forest green jacket men', 'teal blazer women'
-  ]
-};
+const BATCHES_PER_MONTH = 3;
+const RESULTS_PER_QUERY = 10;
+const REQUEST_DELAY_MS = 1000;
+const MIN_PRODUCT_PRICE = 500;
+const MANUAL_MAX_QUERIES = 3;
 
-// Build reverse lookup: query → skin tone
-const queryToTone = {};
-for (const [tone, queries] of Object.entries(skinToneQueries)) {
-  for (const q of queries) {
-    queryToTone[q] = tone;
-  }
+const createQuery = (search, tone, gender, category, productType, styleTags = []) => ({
+  search,
+  tone,
+  gender,
+  category,
+  productType,
+  styleTags,
+});
+
+const SHOPPING_QUERY_CATALOG = [
+  // Warm tone - men
+  createQuery('olive green men casual shirt under 1499', 'warm', 'male', 'Top', 'shirt', ['casual', 'budget']),
+  createQuery('mustard men polo tshirt under 999', 'warm', 'male', 'Top', 'polo', ['casual', 'budget']),
+  createQuery('rust men linen kurta under 1799', 'warm', 'male', 'Ethnic Wear', 'kurta', ['ethnic']),
+  createQuery('camel men chinos under 1499', 'warm', 'male', 'Bottom', 'chinos', ['casual', 'budget']),
+  createQuery('khaki men straight trousers under 1699', 'warm', 'male', 'Bottom', 'trousers', ['smart-casual']),
+  createQuery('brown men lightweight jacket under 2999', 'warm', 'male', 'Outerwear', 'jacket', ['layering']),
+  createQuery('tan men blazer under 3999', 'warm', 'male', 'Outerwear', 'blazer', ['formal']),
+  createQuery('brown men sneakers under 1999', 'warm', 'male', 'Footwear', 'sneakers', ['casual']),
+  createQuery('tan men loafers under 2499', 'warm', 'male', 'Footwear', 'loafers', ['formal']),
+  createQuery('brown men leather belt under 999', 'warm', 'male', 'Accessory', 'belt', ['essential', 'budget']),
+  createQuery('gold men analog watch under 1999', 'warm', 'male', 'Accessory', 'watch', ['essential']),
+  createQuery('burnt orange men overshirt under 1999', 'warm', 'male', 'Top', 'overshirt', ['streetwear']),
+
+  // Warm tone - women
+  createQuery('peach women blouse under 1199', 'warm', 'female', 'Top', 'blouse', ['casual', 'budget']),
+  createQuery('mustard women kurti under 1499', 'warm', 'female', 'Ethnic Wear', 'kurti', ['ethnic', 'budget']),
+  createQuery('olive women co ord set under 2499', 'warm', 'female', 'Set', 'co-ord set', ['casual']),
+  createQuery('beige women trousers under 1499', 'warm', 'female', 'Bottom', 'trousers', ['smart-casual', 'budget']),
+  createQuery('rust women palazzo under 1299', 'warm', 'female', 'Bottom', 'palazzo', ['ethnic', 'budget']),
+  createQuery('terracotta women midi dress under 2199', 'warm', 'female', 'Dress', 'midi dress', ['casual']),
+  createQuery('camel women cropped jacket under 2999', 'warm', 'female', 'Outerwear', 'jacket', ['layering']),
+  createQuery('gold women block heels under 1999', 'warm', 'female', 'Footwear', 'block heels', ['dressy']),
+  createQuery('tan women flats under 1299', 'warm', 'female', 'Footwear', 'flats', ['casual', 'budget']),
+  createQuery('brown women handbag under 1999', 'warm', 'female', 'Accessory', 'handbag', ['essential']),
+  createQuery('gold women earrings under 999', 'warm', 'female', 'Accessory', 'earrings', ['dressy', 'budget']),
+  createQuery('warm beige women blazer under 3499', 'warm', 'female', 'Outerwear', 'blazer', ['formal']),
+
+  // Cool tone - men
+  createQuery('navy men formal shirt under 1499', 'cool', 'male', 'Top', 'shirt', ['formal', 'budget']),
+  createQuery('charcoal men tshirt under 999', 'cool', 'male', 'Top', 'tshirt', ['casual', 'budget']),
+  createQuery('royal blue men kurta under 1799', 'cool', 'male', 'Ethnic Wear', 'kurta', ['ethnic']),
+  createQuery('grey men formal trousers under 1699', 'cool', 'male', 'Bottom', 'trousers', ['formal']),
+  createQuery('black men chinos under 1499', 'cool', 'male', 'Bottom', 'chinos', ['casual', 'budget']),
+  createQuery('charcoal men bomber jacket under 3499', 'cool', 'male', 'Outerwear', 'jacket', ['streetwear']),
+  createQuery('navy men blazer under 3999', 'cool', 'male', 'Outerwear', 'blazer', ['formal']),
+  createQuery('black men sneakers under 1999', 'cool', 'male', 'Footwear', 'sneakers', ['casual']),
+  createQuery('black men loafers under 2499', 'cool', 'male', 'Footwear', 'loafers', ['formal']),
+  createQuery('silver men watch under 1999', 'cool', 'male', 'Accessory', 'watch', ['essential']),
+  createQuery('black men belt under 999', 'cool', 'male', 'Accessory', 'belt', ['essential', 'budget']),
+  createQuery('powder blue men overshirt under 1999', 'cool', 'male', 'Top', 'overshirt', ['smart-casual']),
+
+  // Cool tone - women
+  createQuery('navy women top under 1199', 'cool', 'female', 'Top', 'top', ['casual', 'budget']),
+  createQuery('lavender women kurti under 1499', 'cool', 'female', 'Ethnic Wear', 'kurti', ['ethnic', 'budget']),
+  createQuery('ice blue women co ord set under 2499', 'cool', 'female', 'Set', 'co-ord set', ['casual']),
+  createQuery('grey women trousers under 1499', 'cool', 'female', 'Bottom', 'trousers', ['formal', 'budget']),
+  createQuery('black women skirt under 1499', 'cool', 'female', 'Bottom', 'skirt', ['dressy']),
+  createQuery('navy women dress under 2199', 'cool', 'female', 'Dress', 'dress', ['casual']),
+  createQuery('grey women blazer under 3499', 'cool', 'female', 'Outerwear', 'blazer', ['formal']),
+  createQuery('black women heels under 1999', 'cool', 'female', 'Footwear', 'heels', ['dressy']),
+  createQuery('white women sneakers under 1999', 'cool', 'female', 'Footwear', 'sneakers', ['casual']),
+  createQuery('silver women handbag under 1999', 'cool', 'female', 'Accessory', 'handbag', ['essential']),
+  createQuery('silver women earrings under 999', 'cool', 'female', 'Accessory', 'earrings', ['dressy', 'budget']),
+  createQuery('powder blue women cardigan under 2499', 'cool', 'female', 'Outerwear', 'cardigan', ['layering']),
+
+  // Neutral tone - men
+  createQuery('teal men shirt under 1499', 'neutral', 'male', 'Top', 'shirt', ['casual', 'budget']),
+  createQuery('burgundy men tshirt under 999', 'neutral', 'male', 'Top', 'tshirt', ['casual', 'budget']),
+  createQuery('sage green men kurta under 1799', 'neutral', 'male', 'Ethnic Wear', 'kurta', ['ethnic']),
+  createQuery('forest green men trousers under 1699', 'neutral', 'male', 'Bottom', 'trousers', ['smart-casual']),
+  createQuery('off white men chinos under 1499', 'neutral', 'male', 'Bottom', 'chinos', ['casual', 'budget']),
+  createQuery('olive men jacket under 2999', 'neutral', 'male', 'Outerwear', 'jacket', ['layering']),
+  createQuery('wine men blazer under 3999', 'neutral', 'male', 'Outerwear', 'blazer', ['formal']),
+  createQuery('white men sneakers under 1999', 'neutral', 'male', 'Footwear', 'sneakers', ['casual']),
+  createQuery('tan men boots under 2999', 'neutral', 'male', 'Footwear', 'boots', ['streetwear']),
+  createQuery('brown men watch under 1999', 'neutral', 'male', 'Accessory', 'watch', ['essential']),
+  createQuery('burgundy men belt under 999', 'neutral', 'male', 'Accessory', 'belt', ['essential', 'budget']),
+  createQuery('dusty blue men polo under 1199', 'neutral', 'male', 'Top', 'polo', ['smart-casual', 'budget']),
+
+  // Neutral tone - women
+  createQuery('teal women blouse under 1199', 'neutral', 'female', 'Top', 'blouse', ['casual', 'budget']),
+  createQuery('sage green women kurti under 1499', 'neutral', 'female', 'Ethnic Wear', 'kurti', ['ethnic', 'budget']),
+  createQuery('burgundy women co ord set under 2499', 'neutral', 'female', 'Set', 'co-ord set', ['casual']),
+  createQuery('off white women trousers under 1499', 'neutral', 'female', 'Bottom', 'trousers', ['smart-casual', 'budget']),
+  createQuery('mauve women skirt under 1499', 'neutral', 'female', 'Bottom', 'skirt', ['dressy']),
+  createQuery('teal women midi dress under 2199', 'neutral', 'female', 'Dress', 'midi dress', ['casual']),
+  createQuery('forest green women blazer under 3499', 'neutral', 'female', 'Outerwear', 'blazer', ['formal']),
+  createQuery('beige women sandals under 1499', 'neutral', 'female', 'Footwear', 'sandals', ['casual', 'budget']),
+  createQuery('white women sneakers under 1999', 'neutral', 'female', 'Footwear', 'sneakers', ['casual']),
+  createQuery('tan women handbag under 1999', 'neutral', 'female', 'Accessory', 'handbag', ['essential']),
+  createQuery('rose gold women watch under 1999', 'neutral', 'female', 'Accessory', 'watch', ['essential']),
+  createQuery('dusty rose women cardigan under 2499', 'neutral', 'female', 'Outerwear', 'cardigan', ['layering']),
+];
+
+function getCurrentSyncCycleId(date = new Date()) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  return `${year}-${month}`;
 }
 
-function detectGender(title = '', query = '') {
-  const text = `${title} ${query}`.toLowerCase();
-  if (text.includes('women') || text.includes('female') || text.includes('girl') ||
-      text.includes('ladies') || text.includes('saree') || text.includes('kurti') ||
-      text.includes('blouse') || text.includes('lehenga')) return 'female';
-  if (text.includes(' men') || text.includes("men's") || text.includes('male') ||
-      text.includes('sherwani') || text.includes('pathani') || text.includes('bandhgala'))
-    return 'male';
-  return 'unisex';
+function getMonthlyBatchRanges(totalQueries = SHOPPING_QUERY_CATALOG.length) {
+  const batchSize = Math.ceil(totalQueries / BATCHES_PER_MONTH);
+
+  return Array.from({ length: BATCHES_PER_MONTH }, (_, index) => {
+    const start = index * batchSize;
+    const end = Math.min(totalQueries - 1, start + batchSize - 1);
+
+    return {
+      batchNumber: index + 1,
+      start,
+      end,
+      isEmpty: start >= totalQueries || start > end,
+    };
+  });
 }
 
-function extractColor(query = '') {
+function extractColor(...parts) {
+  const text = parts.join(' ').toLowerCase();
   const colors = [
-    'olive green', 'mustard', 'rust', 'terracotta', 'brown', 'camel', 'golden yellow',
-    'burnt orange', 'tan', 'khaki', 'peach', 'navy blue', 'royal blue', 'grey',
-    'purple', 'black', 'steel blue', 'cobalt blue', 'indigo', 'charcoal',
-    'powder blue', 'lavender', 'pink', 'ice blue', 'lilac', 'dusty pink',
-    'mint green', 'teal', 'burgundy', 'sage green', 'forest green', 'wine red',
-    'dusty blue', 'off white', 'plum', 'warm grey', 'mauve', 'dusty rose', 'white'
+    'olive green', 'mustard', 'rust', 'terracotta', 'brown', 'camel', 'gold', 'golden',
+    'burnt orange', 'tan', 'khaki', 'peach', 'navy', 'navy blue', 'royal blue', 'grey',
+    'gray', 'purple', 'black', 'steel blue', 'cobalt blue', 'indigo', 'charcoal',
+    'powder blue', 'lavender', 'pink', 'ice blue', 'lilac', 'dusty pink', 'mint green',
+    'teal', 'burgundy', 'sage green', 'forest green', 'wine', 'wine red', 'dusty blue',
+    'off white', 'white', 'plum', 'warm grey', 'mauve', 'dusty rose', 'beige', 'silver',
+    'rose gold'
   ];
-  return colors.find(c => query.includes(c)) || 'multicolor';
-}
 
-function detectCategory(title = '', query = '') {
-  const text = `${title} ${query}`.toLowerCase();
-  if (text.includes('saree') || text.includes('lehenga')) return 'Ethnic Wear';
-  if (text.includes('kurta') || text.includes('kurti') || text.includes('pathani') ||
-      text.includes('sherwani') || text.includes('bandhgala') || text.includes('nehru'))
-    return 'Ethnic Wear';
-  if (text.includes('dress') || text.includes('co ord') || text.includes('coord'))
-    return 'Dress';
-  if (text.includes('jacket') || text.includes('blazer') || text.includes('coat') ||
-      text.includes('hoodie') || text.includes('sweater')) return 'Outerwear';
-  if (text.includes('trouser') || text.includes('pant') || text.includes('chino') ||
-      text.includes('jeans') || text.includes('skirt') || text.includes('legging'))
-    return 'Bottom';
-  return 'Top';
+  return colors.find((color) => text.includes(color)) || 'multicolor';
 }
 
 function extractBrand(source = '', title = '') {
-  // Source field from SerpApi is already the brand/platform name
   const knownBrands = [
     'Snitch', 'Levi', 'Roadster', 'H&M', 'WROGN', 'Highlander', 'HERE&NOW',
     'Campus Sutra', 'Woodland', 'INVICTUS', 'Nobero', 'Dennis Lingo',
     'The Souled Store', 'The Indian Garage Co', 'Urbano', 'Allen Solly',
     'Peter England', 'Van Heusen', 'US Polo', 'Jack & Jones', 'Puma',
-    'Nike', 'Adidas', 'Biba', 'W ', 'Fabindia', 'Global Desi', 'AND',
-    'Aurelia', 'Mango', 'Styli', 'AJIO', 'Myntra'
+    'Nike', 'Adidas', 'Biba', 'Fabindia', 'Global Desi', 'AND', 'Aurelia',
+    'Mango', 'Styli', 'AJIO', 'Myntra', 'Bewakoof', 'Louis Philippe'
   ];
-  const text = `${source} ${title}`;
-  return knownBrands.find(b => text.includes(b)) || source.split('.')[0] || 'Unknown';
+
+  const text = `${source} ${title}`.toLowerCase();
+  const matchedBrand = knownBrands.find((brand) => text.includes(brand.toLowerCase()));
+  return matchedBrand || source.split('.')[0] || 'Unknown';
 }
 
 function detectPlatform(source = '') {
-  const s = source.toLowerCase();
-  if (s.includes('amazon')) return 'Amazon';
-  if (s.includes('myntra')) return 'Myntra';
-  if (s.includes('ajio')) return 'Ajio';
-  if (s.includes('flipkart')) return 'Flipkart';
-  if (s.includes('nykaa')) return 'Nykaa Fashion';
-  if (s.includes('snitch')) return 'Snitch';
-  if (s.includes('levi')) return 'Levi\'s';
+  const normalized = source.toLowerCase();
+
+  if (normalized.includes('amazon')) return 'Amazon';
+  if (normalized.includes('myntra')) return 'Myntra';
+  if (normalized.includes('ajio')) return 'Ajio';
+  if (normalized.includes('flipkart')) return 'Flipkart';
+  if (normalized.includes('bewakoof')) return 'Bewakoof';
+  if (normalized.includes('nykaa')) return 'Nykaa Fashion';
   return source || 'Other';
 }
 
-async function fetchAndStoreProducts() {
-  console.log('🔄 Starting SerpApi product sync...');
+function normalizePrice(product) {
+  const rawPrice = product.extracted_price ?? product.price ?? null;
+  const numericPrice = Number(rawPrice);
+
+  if (!Number.isFinite(numericPrice)) {
+    return null;
+  }
+
+  return numericPrice;
+}
+
+async function upsertProductsForQueries(queries, options = {}) {
+  const cycleId = options.cycleId || getCurrentSyncCycleId();
+  const cleanupStale = Boolean(options.cleanupStale);
+  const logLabel = options.logLabel || 'catalog sync';
+
+  if (!queries.length) {
+    if (cleanupStale) {
+      const cleanup = await cleanupStaleProducts(cycleId);
+      return { totalSaved: 0, searchesUsed: 0, deletedCount: cleanup.deletedCount };
+    }
+
+    console.log(`No queries to sync for ${logLabel}`);
+    return { totalSaved: 0, searchesUsed: 0, deletedCount: 0 };
+  }
+
+  console.log(`Starting ${logLabel} for cycle ${cycleId} with ${queries.length} queries`);
+
   let totalSaved = 0;
   let searchesUsed = 0;
+  let failedQueries = 0;
 
-  // Flatten all queries
-  const allQueries = Object.values(skinToneQueries).flat();
-
-  for (const query of allQueries) {
+  for (const query of queries) {
     try {
-      console.log(`🔍 [${++searchesUsed}/${allQueries.length}] Searching: ${query}`);
+      console.log(`[${++searchesUsed}/${queries.length}] Searching: ${query.search}`);
 
       const response = await axios.get('https://serpapi.com/search.json', {
         params: {
           engine: 'google_shopping',
-          q: query,
-          gl: 'in',          // India
+          q: query.search,
+          gl: 'in',
           hl: 'en',
-          num: 10,           // 10 results per query
-          api_key: process.env.SERPAPI_KEY
-        }
+          num: RESULTS_PER_QUERY,
+          api_key: process.env.SERPAPI_KEY,
+        },
       });
 
       const results = response.data?.shopping_results || [];
 
-      if (results.length === 0) {
-        console.log(`⚠️  No results for: ${query}`);
+      if (!results.length) {
+        console.log(`No results for query: ${query.search}`);
         continue;
       }
 
-      const skinTone = queryToTone[query] || 'neutral';
-      const color = extractColor(query);
-      const gender = detectGender('', query);
-      const category = detectCategory('', query);
-
       for (const product of results) {
         try {
-          // Skip products without image or price
           if (!product.thumbnail) continue;
-          if (!product.extracted_price) continue;
 
-          const externalId = `serp_${product.product_id || 
-            Buffer.from(query + product.title).toString('base64').slice(0, 40)}`;
+          const numericPrice = normalizePrice(product);
+          if (!numericPrice || numericPrice < MIN_PRODUCT_PRICE) continue;
 
-          const brand = extractBrand(product.source || '', product.title || '');
-          const platform = detectPlatform(product.source || '');
+          const externalId = `serp_${product.product_id ||
+            Buffer.from(query.search + (product.title || '')).toString('base64').slice(0, 40)}`;
 
           await Outfit.findOneAndUpdate(
             { externalId },
             {
               externalId,
               name: product.title,
-              brand,
-              price: product.extracted_price,
-              originalPrice: product.extracted_old_price || product.extracted_price,
+              brand: extractBrand(product.source || '', product.title || ''),
+              price: numericPrice.toString(),
+              originalPrice: (product.extracted_old_price || numericPrice).toString(),
               image: product.thumbnail,
-              link: product.product_link,  // Google Shopping link
-              source: platform,
-              color,
-              gender,
-              recommendedSkinTones: [skinTone],
-              category,
+              link: product.product_link,
+              source: detectPlatform(product.source || ''),
+              color: extractColor(query.search, product.title || ''),
+              gender: query.gender,
+              recommendedSkinTones: [query.tone],
+              category: query.category,
+              productType: query.productType,
+              styleTags: query.styleTags,
               rating: product.rating || null,
               reviews: product.reviews || 0,
               delivery: product.delivery || null,
-              lastUpdated: new Date()
+              lastUpdated: new Date(),
+              lastSyncedAt: new Date(),
+              syncCycleId: cycleId,
             },
             { upsert: true, new: true }
           );
 
           totalSaved++;
         } catch (productErr) {
-          console.error(`  ⚠️ Skipped one product:`, productErr.message);
-          continue;
+          console.error(`Skipped product for "${query.search}": ${productErr.message}`);
         }
       }
 
-      // 1 second delay between requests to be safe
-      await new Promise(r => setTimeout(r, 1000));
-
+      await new Promise((resolve) => setTimeout(resolve, REQUEST_DELAY_MS));
     } catch (err) {
-      console.error(`❌ Failed query "${query}":`, {
+      failedQueries++;
+      console.error(`Failed query "${query.search}":`, {
         status: err.response?.status,
-        message: err.response?.data?.error || err.message
+        message: err.response?.data?.error || err.message,
       });
-      continue;
     }
   }
 
-  console.log(`✅ Sync done. Searches used: ${searchesUsed} | Products stored: ${totalSaved}`);
-  return totalSaved;
-}
+  let deletedCount = 0;
 
-async function syncBatch(fromIndex, toIndex) {
-  const allQueries = Object.values(skinToneQueries).flat();
-  const batch = allQueries.slice(fromIndex, toIndex + 1);
-  console.log(`🔄 Syncing batch: queries ${fromIndex}–${toIndex} (${batch.length} queries)`);
-  
-  let totalSaved = 0;
-  let searchesUsed = 0;
-
-  for (const query of batch) {
-    try {
-      console.log(`🔍 [${++searchesUsed}/${batch.length}] ${query}`);
-      
-      const response = await axios.get('https://serpapi.com/search.json', {
-        params: {
-          engine: 'google_shopping',
-          q: query,
-          gl: 'in',
-          hl: 'en',
-          num: 10,
-          api_key: process.env.SERPAPI_KEY
-        }
-      });
-
-      const results = response.data?.shopping_results || [];
-      const skinTone = queryToTone[query] || 'neutral';
-      const color = extractColor(query);
-      const gender = detectGender('', query);
-      const category = detectCategory('', query);
-
-      for (const product of results) {
-        if (!product.thumbnail || !product.extracted_price) continue;
-
-        const externalId = `serp_${product.product_id || 
-          Buffer.from(query + product.title).toString('base64').slice(0, 40)}`;
-
-        await Outfit.findOneAndUpdate(
-          { externalId },
-          {
-            externalId,
-            name: product.title,
-            brand: extractBrand(product.source || '', product.title || ''),
-            price: product.extracted_price,
-            originalPrice: product.extracted_old_price || product.extracted_price,
-            image: product.thumbnail,
-            link: product.product_link,
-            source: detectPlatform(product.source || ''),
-            color, gender,
-            recommendedSkinTones: [skinTone],
-            category,
-            rating: product.rating || null,
-            reviews: product.reviews || 0,
-            delivery: product.delivery || null,
-            lastUpdated: new Date()
-          },
-          { upsert: true, new: true }
-        );
-        totalSaved++;
-      }
-      await new Promise(r => setTimeout(r, 1000));
-    } catch (err) {
-      console.error(`❌ Failed: "${query}"`, err.message);
-      continue;
-    }
+  if (cleanupStale && failedQueries === 0) {
+    const cleanup = await cleanupStaleProducts(cycleId);
+    deletedCount = cleanup.deletedCount;
   }
 
-  console.log(`✅ Batch done. Searches: ${searchesUsed} | Saved: ${totalSaved}`);
-  return totalSaved;
+  if (cleanupStale && failedQueries > 0) {
+    console.log(`Skipped stale cleanup for cycle ${cycleId} because ${failedQueries} queries failed`);
+  }
+
+  console.log(
+    `Completed ${logLabel}. Searches used: ${searchesUsed} | Products saved: ${totalSaved} | Failed queries: ${failedQueries} | Deleted stale: ${deletedCount}`
+  );
+
+  return { totalSaved, searchesUsed, deletedCount };
 }
 
-module.exports = { fetchAndStoreProducts, syncBatch };
+async function cleanupStaleProducts(cycleId) {
+  const result = await Outfit.deleteMany({
+    syncCycleId: { $ne: cycleId },
+  });
+
+  console.log(`Deleted ${result.deletedCount} stale products after cycle ${cycleId}`);
+  return result;
+}
+
+async function fetchAndStoreProducts(options = {}) {
+  const requestedStartIndex = Number.isInteger(options.startIndex) ? options.startIndex : 0;
+  const safeStartIndex = Math.max(0, requestedStartIndex);
+  const requestedQueryCount = Number.isInteger(options.maxQueries)
+    ? options.maxQueries
+    : SHOPPING_QUERY_CATALOG.length;
+
+  const queryCount = options.manual
+    ? Math.min(Math.max(requestedQueryCount, 1), MANUAL_MAX_QUERIES)
+    : Math.max(requestedQueryCount, 1);
+
+  const queries = SHOPPING_QUERY_CATALOG.slice(safeStartIndex, safeStartIndex + queryCount);
+
+  const result = await upsertProductsForQueries(queries, {
+    cycleId: options.cycleId,
+    cleanupStale: options.cleanupStale ?? true,
+    logLabel: options.logLabel || 'full catalog sync',
+  });
+
+  return {
+    ...result,
+    queriesRequested: queries.length,
+    startIndex: safeStartIndex,
+  };
+}
+
+async function syncBatch(fromIndex, toIndex, options = {}) {
+  const queries = SHOPPING_QUERY_CATALOG.slice(fromIndex, toIndex + 1);
+  const result = await upsertProductsForQueries(queries, {
+    cycleId: options.cycleId,
+    cleanupStale: options.cleanupStale ?? false,
+    logLabel: options.logLabel || `batch sync ${fromIndex}-${toIndex}`,
+  });
+
+  return result.totalSaved;
+}
+
+module.exports = {
+  fetchAndStoreProducts,
+  syncBatch,
+  getCurrentSyncCycleId,
+  getMonthlyBatchRanges,
+  SHOPPING_QUERY_CATALOG,
+  MANUAL_MAX_QUERIES,
+};

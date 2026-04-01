@@ -1,6 +1,10 @@
 const express = require('express');
 const Outfit = require('../models/Outfit');
-const { fetchAndStoreProducts, syncBatch } = require('../services/serpApiService');
+const {
+  fetchAndStoreProducts,
+  syncBatch,
+  MANUAL_MAX_QUERIES,
+} = require('../services/serpApiService');
 
 const router = express.Router();
 
@@ -47,8 +51,29 @@ router.get('/sources', async (req, res) => {
 // POST /api/outfits/sync — Manually trigger product sync
 router.post('/sync', async (req, res) => {
   try {
-    const count = await fetchAndStoreProducts();
-    res.json({ success: true, message: `Synced ${count} products` });
+    const requestedStartIndex = Number.parseInt(req.body?.startIndex, 10);
+    const requestedQueryCount = Number.parseInt(req.body?.queryCount, 10);
+
+    const startIndex = Number.isNaN(requestedStartIndex) ? 0 : requestedStartIndex;
+    const queryCount = Number.isNaN(requestedQueryCount) ? MANUAL_MAX_QUERIES : requestedQueryCount;
+
+    const result = await fetchAndStoreProducts({
+      manual: true,
+      startIndex,
+      maxQueries: queryCount,
+      cleanupStale: false,
+      logLabel: 'manual limited sync',
+    });
+
+    res.json({
+      success: true,
+      synced: result.totalSaved,
+      searchesUsed: result.searchesUsed,
+      queriesRequested: result.queriesRequested,
+      manualQueryCap: MANUAL_MAX_QUERIES,
+      startIndex: result.startIndex,
+      message: `Manual sync completed with ${result.queriesRequested} query slots and ${result.totalSaved} products saved`,
+    });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }

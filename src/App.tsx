@@ -8,10 +8,12 @@ import Shop from './components/Shop';
 import About from './components/About';
 import Footer from './components/Footer';
 import Onboarding from './components/Onboarding';
+import PersonalCloset from './components/PersonalCloset';
 import { Outfit } from './components/outfit';
 import { SpeedInsights } from '@vercel/speed-insights/react';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+const normalizePath = (path: string) => (path === '/closet' ? '/closet' : '/');
 
 function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -24,6 +26,36 @@ function App() {
   const [selectedGender, setSelectedGender] = useState<string | null>(null);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [isAppReady, setIsAppReady] = useState(false);
+  const [currentPath, setCurrentPath] = useState<string>(() => normalizePath(window.location.pathname));
+  const [pendingScrollTarget, setPendingScrollTarget] = useState<string | null>(null);
+
+  const scrollToSection = (sectionId: string) => {
+    const section = document.querySelector(sectionId);
+    if (section) {
+      section.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
+
+  const navigateTo = (path: string, sectionId?: string) => {
+    const normalizedPath = normalizePath(path);
+
+    if (normalizedPath !== currentPath) {
+      window.history.pushState({}, '', normalizedPath);
+      setCurrentPath(normalizedPath);
+    }
+
+    if (normalizedPath === '/') {
+      if (sectionId) {
+        setPendingScrollTarget(sectionId);
+      } else {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+      return;
+    }
+
+    setPendingScrollTarget(null);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   // On mount: check if user has visited before
   useEffect(() => {
@@ -45,6 +77,27 @@ function App() {
       setIsAppReady(true);
     }
   }, []);
+
+  useEffect(() => {
+    const handlePopState = () => {
+      setCurrentPath(normalizePath(window.location.pathname));
+      setPendingScrollTarget(null);
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
+  useEffect(() => {
+    if (currentPath !== '/' || !pendingScrollTarget) return;
+
+    const timer = window.setTimeout(() => {
+      scrollToSection(pendingScrollTarget);
+      setPendingScrollTarget(null);
+    }, 80);
+
+    return () => window.clearTimeout(timer);
+  }, [currentPath, pendingScrollTarget]);
 
   const verifyToken = async (storedToken: string) => {
     try {
@@ -268,29 +321,41 @@ function App() {
         wishlistCount={wishlist.length}
         wishlist={wishlist}
         toggleWishlist={toggleWishlist}
+        currentPath={currentPath}
+        onNavigate={navigateTo}
       />
-      <Hero />
-      <Detect
-        isLoggedIn={isLoggedIn}
-        userId={userId}
-        token={token}
-        onSkinToneDetected={handleSkinToneDetected}
-      />
-      {detectedSkinTone && (
-        <ColorPalette skinToneType={detectedSkinTone.type} />
+      {currentPath === '/closet' ? (
+        <PersonalCloset
+          detectedSkinTone={detectedSkinTone}
+          selectedGender={selectedGender}
+          onBackToShop={() => navigateTo('/', '#shop')}
+        />
+      ) : (
+        <>
+          <Hero />
+          <Detect
+            isLoggedIn={isLoggedIn}
+            userId={userId}
+            token={token}
+            onSkinToneDetected={handleSkinToneDetected}
+          />
+          {detectedSkinTone && (
+            <ColorPalette skinToneType={detectedSkinTone.type} />
+          )}
+          <Shop
+            isLoggedIn={isLoggedIn}
+            userId={userId}
+            token={token}
+            detectedSkinTone={detectedSkinTone}
+            wishlist={wishlist}
+            toggleWishlist={toggleWishlist}
+            selectedGender={selectedGender}
+          />
+          <About />
+          <Footer />
+        </>
       )}
-      <Shop
-        isLoggedIn={isLoggedIn}
-        userId={userId}
-        token={token}
-        detectedSkinTone={detectedSkinTone}
-        wishlist={wishlist}
-        toggleWishlist={toggleWishlist}
-        selectedGender={selectedGender}
-      />
       <SpeedInsights />
-      <About />
-      <Footer />
     </div>
   );
 }

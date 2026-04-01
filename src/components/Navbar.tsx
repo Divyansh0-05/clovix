@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Heart, User, Home, Camera, ShoppingBag, Trash2 } from 'lucide-react';
+import { Heart, User, Home, Camera, ShoppingBag, Shirt, Trash2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Outfit } from './outfit';
 
@@ -15,6 +15,8 @@ interface NavbarProps {
   wishlistCount: number;
   wishlist: Outfit[];
   toggleWishlist: (outfit: Outfit) => void;
+  currentPath: string;
+  onNavigate: (path: string, sectionId?: string) => void;
 }
 
 export default function Navbar({
@@ -29,6 +31,8 @@ export default function Navbar({
   wishlistCount,
   wishlist,
   toggleWishlist,
+  currentPath,
+  onNavigate,
 }: NavbarProps) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isAuthPopupOpen, setIsAuthPopupOpen] = useState(false);
@@ -57,12 +61,9 @@ export default function Navbar({
     document.body.style.overflow = '';
   };
 
-  const handleNavClick = (sectionId: string) => {
+  const handleNavClick = (sectionId: string, path = '/') => {
     closeMobileMenu();
-    const section = document.querySelector(sectionId);
-    if (section) {
-      section.scrollIntoView({ behavior: 'smooth' });
-    }
+    onNavigate(path, sectionId);
   };
 
   const toggleAuthPopup = () => {
@@ -151,6 +152,7 @@ export default function Navbar({
     home: 'Home',
     detect: 'Detect',
     shop: 'Shop',
+    closet: 'Personal Closet',
     login: 'Login',
     account: 'Account',
     wishlist: 'Wishlist',
@@ -217,12 +219,13 @@ export default function Navbar({
           `}
         >
           {[
-            { id: 'home', Icon: Home, section: '#home' },
-            { id: 'detect', Icon: Camera, section: '#detect' },
-            { id: 'shop', Icon: ShoppingBag, section: '#shop' },
+            { id: 'home', Icon: Home, section: '#home', path: '/' },
+            { id: 'detect', Icon: Camera, section: '#detect', path: '/' },
+            { id: 'shop', Icon: ShoppingBag, section: '#shop', path: '/' },
+            { id: 'closet', Icon: Shirt, path: '/closet' },
             { id: isLoggedIn ? 'account' : 'login', Icon: User, action: toggleAuthPopup },
             { id: 'wishlist', Icon: Heart, action: toggleWishlistPopup },
-          ].map(({ id, Icon, section, action }) => (
+          ].map(({ id, Icon, section, path, action }) => (
             <motion.div
               key={id}
               className={`relative flex flex-col items-center ${id === 'wishlist' ? 'wishlist-icon' : ''}`}
@@ -232,10 +235,15 @@ export default function Navbar({
             >
               <button
                 onClick={() => {
-                  if (section) handleNavClick(section);
+                  if (section) handleNavClick(section, path);
+                  else if (path) onNavigate(path);
                   else if (action) action();
                 }}
-                className="text-[#5B21B6] hover:text-[#6d28d9] transition-colors duration-300 relative p-2"
+                className={`relative p-2 transition-colors duration-300 ${
+                  currentPath === path && id === 'closet'
+                    ? 'text-[#6d28d9]'
+                    : 'text-[#5B21B6] hover:text-[#6d28d9]'
+                }`}
               >
                 <Icon className="w-7 h-7 md:w-9 md:h-9" />
                 {id === 'wishlist' && wishlistCount > 0 && (

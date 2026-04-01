@@ -60,9 +60,17 @@ const outfitSchema = new mongoose.Schema({
     type: String,
     default: null,
   },
+  productType: {
+    type: String,
+    default: null,
+  },
   color: {
     type: String,
     default: null,
+  },
+  styleTags: {
+    type: [String],
+    default: [],
   },
   rating: {
     type: Number,
@@ -80,6 +88,14 @@ const outfitSchema = new mongoose.Schema({
     type: Date,
     default: Date.now,
   },
+  lastSyncedAt: {
+    type: Date,
+    default: null,
+  },
+  syncCycleId: {
+    type: String,
+    default: null,
+  },
   createdAt: {
     type: Date,
     default: Date.now,
@@ -88,5 +104,7 @@ const outfitSchema = new mongoose.Schema({
 
 // Index for efficient querying
 outfitSchema.index({ recommendedSkinTones: 1, gender: 1, source: 1 });
+outfitSchema.index({ syncCycleId: 1, lastSyncedAt: -1 });
+outfitSchema.index({ category: 1, productType: 1, gender: 1 });
 
 module.exports = mongoose.model('Outfit', outfitSchema);

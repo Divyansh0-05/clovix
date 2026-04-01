@@ -14,6 +14,8 @@ export interface Outfit {
     color?: string;
     gender: string; // Required: 'male', 'female', or 'unisex'
     category?: string;
+    productType?: string;
+    styleTags?: string[];
     rating?: number | null;
     reviews?: number;
     delivery?: string | null;
