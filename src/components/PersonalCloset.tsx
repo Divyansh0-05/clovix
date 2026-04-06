@@ -27,7 +27,7 @@ const categoryKeywords: Record<string, string[]> = {
   Bottom: ['trouser', 'trousers', 'chino', 'pant', 'pants', 'jeans', 'palazzo', 'skirt'],
   Footwear: ['sneaker', 'sneakers', 'shoe', 'shoes', 'loafer', 'loafers', 'heel', 'heels', 'flats', 'sandal', 'sandals', 'boots'],
   Outerwear: ['jacket', 'blazer', 'cardigan', 'hoodie', 'coat', 'overshirt'],
-  Accessory: ['watch', 'belt', 'handbag', 'bag', 'earring', 'earrings'],
+  Accessory: ['watch', 'handbag', 'bag', 'earring', 'earrings', 'wallet', 'sling bag', 'clutch'],
   Top: ['shirt', 'tshirt', 't-shirt', 'top', 'blouse', 'polo'],
 };
 
@@ -46,6 +46,16 @@ const normalizeCategory = (outfit: Outfit) => {
   const name = outfit.name.toLowerCase();
   const text = `${rawCategory} ${rawType} ${name}`;
 
+  // Respect backend categorization first when it is explicit.
+  if (rawCategory.includes('footwear')) return 'Footwear';
+  if (rawCategory.includes('accessory')) return 'Accessory';
+  if (rawCategory.includes('outerwear')) return 'Outerwear';
+  if (rawCategory.includes('bottom')) return 'Bottom';
+  if (rawCategory.includes('ethnic')) return 'EthnicWear';
+  if (rawCategory.includes('dress')) return 'Dress';
+  if (rawCategory.includes('set')) return 'Set';
+  if (rawCategory.includes('top')) return 'Top';
+
   if (rawCategory.includes('dress') || categoryKeywords.Dress.some((keyword) => text.includes(keyword))) {
     return 'Dress';
   }
@@ -58,23 +68,74 @@ const normalizeCategory = (outfit: Outfit) => {
     return 'EthnicWear';
   }
 
-  if (rawCategory.includes('bottom') || categoryKeywords.Bottom.some((keyword) => text.includes(keyword))) {
+  if (categoryKeywords.Bottom.some((keyword) => text.includes(keyword))) {
     return 'Bottom';
   }
 
-  if (rawCategory.includes('footwear') || categoryKeywords.Footwear.some((keyword) => text.includes(keyword))) {
+  if (categoryKeywords.Footwear.some((keyword) => text.includes(keyword))) {
     return 'Footwear';
   }
 
-  if (rawCategory.includes('outerwear') || categoryKeywords.Outerwear.some((keyword) => text.includes(keyword))) {
+  if (categoryKeywords.Outerwear.some((keyword) => text.includes(keyword))) {
     return 'Outerwear';
   }
 
-  if (rawCategory.includes('accessory') || categoryKeywords.Accessory.some((keyword) => text.includes(keyword))) {
+  // Belts attached to a blouse/top should still be treated as clothing, not accessories.
+  const hasClothingSignal = categoryKeywords.Top.some((keyword) => text.includes(keyword));
+  if (!hasClothingSignal && categoryKeywords.Accessory.some((keyword) => text.includes(keyword))) {
     return 'Accessory';
   }
 
   return 'Top';
+};
+
+const getItemDescriptor = (outfit: Outfit) =>
+  `${outfit.category || ''} ${outfit.productType || ''} ${outfit.name}`.toLowerCase();
+
+const isFemalePairableTop = (outfit: Outfit) => {
+  const descriptor = getItemDescriptor(outfit);
+
+  if (
+    descriptor.includes('kurti') ||
+    descriptor.includes('kurta') ||
+    descriptor.includes('ethnic') ||
+    descriptor.includes('lehenga') ||
+    descriptor.includes('saree') ||
+    descriptor.includes('blouse')
+  ) {
+    return false;
+  }
+
+  return (
+    descriptor.includes('top') ||
+    descriptor.includes('shirt') ||
+    descriptor.includes('tshirt') ||
+    descriptor.includes('t-shirt') ||
+    descriptor.includes('overshirt')
+  );
+};
+
+const getPairableTopPool = (tops: Outfit[], selectedGender: string | null) => {
+  if (selectedGender === 'female') {
+    return tops.filter(isFemalePairableTop);
+  }
+
+  return tops;
+};
+
+const getValidAccessory = (items: Outfit[], selectedGender: string | null, index: number) => {
+  const filtered = items.filter((item) => {
+    const descriptor = getItemDescriptor(item);
+
+    if (selectedGender === 'female' && (descriptor.includes('belt') || descriptor.includes('blouse'))) {
+      return false;
+    }
+
+    return true;
+  });
+
+  if (!filtered.length) return undefined;
+  return filtered[index % filtered.length];
 };
 
 const buildClosetLooks = (products: Outfit[], selectedGender: string | null, skinTone?: string | null) => {
@@ -128,7 +189,7 @@ const buildClosetLooks = (products: Outfit[], selectedGender: string | null, ski
       'One-And-Done Look',
       `A streamlined ${vibeLabel} outfit anchored by a statement dress.`,
       'Easy polish',
-      [dress, footwearPool[index % footwearPool.length], accessoryPool[index % accessoryPool.length]]
+      [dress, footwearPool[index % footwearPool.length], getValidAccessory(accessoryPool, selectedGender, index)]
     );
   });
 
@@ -137,7 +198,7 @@ const buildClosetLooks = (products: Outfit[], selectedGender: string | null, ski
       'Co-Ord Closet Pick',
       `A ready-made matching set styled for your ${vibeLabel}.`,
       'Matched energy',
-      [setItem, footwearPool[(index + 1) % footwearPool.length], accessoryPool[(index + 1) % accessoryPool.length]]
+      [setItem, footwearPool[(index + 1) % footwearPool.length], getValidAccessory(accessoryPool, selectedGender, index + 1)]
     );
   });
 
@@ -146,22 +207,23 @@ const buildClosetLooks = (products: Outfit[], selectedGender: string | null, ski
       'Festive Outfit',
       `An occasion-ready ethnic look for your ${vibeLabel}.`,
       'Celebration ready',
-      [ethnic, footwearPool[(index + 2) % footwearPool.length], accessoryPool[(index + 2) % accessoryPool.length]]
+      [ethnic, footwearPool[(index + 2) % footwearPool.length], getValidAccessory(accessoryPool, selectedGender, index + 2)]
     );
   });
 
-  const pairCount = Math.min(buckets.Top.length, buckets.Bottom.length);
+  const pairableTops = getPairableTopPool(buckets.Top, selectedGender);
+  const pairCount = Math.min(pairableTops.length, buckets.Bottom.length);
   for (let index = 0; index < Math.min(pairCount, 6); index += 1) {
     addLook(
       'Everyday Styled Look',
       `A complete layered outfit mixed from pieces that flatter your ${vibeLabel}.`,
       index % 2 === 0 ? 'Daily go-to' : 'Sharp casual',
       [
-        buckets.Top[index],
+        pairableTops[index],
         buckets.Bottom[index % buckets.Bottom.length],
         outerwearPool[index % outerwearPool.length],
         footwearPool[index % footwearPool.length],
-        accessoryPool[index % accessoryPool.length],
+        getValidAccessory(accessoryPool, selectedGender, index),
       ]
     );
   }
