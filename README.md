@@ -103,21 +103,11 @@ cd ..
 
 ### 4. Configure environment variables
 
-Create a root `.env` file for the frontend:
+Create a root `.env` file for the frontend
 
-```env
-VITE_API_URL=http://localhost:3000
-```
 
 Create `server/.env` for the backend:
 
-```env
-PORT=3000
-MONGODB_URI=your_mongodb_connection_string
-JWT_SECRET=your_jwt_secret
-SERPAPI_KEY=your_serpapi_key
-ALLOWED_ORIGINS=http://localhost:5173,http://localhost:5174
-```
 
 ## Running the App
 
